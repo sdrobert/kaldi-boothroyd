@@ -40,7 +40,7 @@ done
 
 set -e
 
-# utils/split_data.sh "$data" "$nj"
+utils/split_data.sh "$data" "$nj"
 
 mkdir -p "$exp" "$tmpdir" "$logdir"
 
