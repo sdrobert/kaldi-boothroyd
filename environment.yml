@@ -1,0 +1,14 @@
+name: kaldi-boothroyd
+
+channels:
+  - conda-forge
+
+dependencies:
+  - compilers
+  - kaldi
+  - libflac
+  - perl
+  - pip
+  - python
+  - pip:
+    - git+https://github.com/kpu/kenlm.git
