@@ -18,8 +18,8 @@ iter=final
 [ -f ./path.sh ] && . ./path.sh
 . parse_options.sh || exit 1;
 
-if [ $# -ne 3 ]; then
-  echo "Usage: local/score.sh [--cmd (run.pl|queue.pl...)] <data-dir> <lang-dir|graph-dir> <decode-dir>"
+if [ $# -ne 3 ] && [ $# -ne 4 ]; then
+  echo "Usage: local/score.sh [--cmd (run.pl|queue.pl...)] <data-dir> <lang-dir|graph-dir> [<lattice-dir>] <decode-dir>"
   echo " Options:"
   echo "    --cmd (run.pl|queue.pl...)      # specify how to run the sub-processes."
   echo "    --stage (0|1|2)                 # start scoring script from part-way through."
@@ -31,11 +31,12 @@ fi
 
 data=$1
 lang_or_graph=$2
-dir=$3
+latdir=$3
+dir=${4:-$3}
 
 symtab=$lang_or_graph/words.txt
 
-for f in $symtab $dir/lat.1.gz $data/text; do
+for f in $symtab $latdir/lat.1.gz $data/text; do
   [ ! -f $f ] && echo "score.sh: no such file $f" && exit 1;
 done
 
@@ -45,7 +46,7 @@ cat $data/text | sed 's:<NOISE>::g' | sed 's:<SPOKEN_NOISE>::g' > $dir/scoring/t
 
 for wip in $(echo $word_ins_penalty | sed 's/,/ /g'); do
   $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/best_path.LMWT.$wip.log \
-    lattice-scale --inv-acoustic-scale=LMWT "ark:gunzip -c $dir/lat.*.gz|" ark:- \| \
+    lattice-scale --inv-acoustic-scale=LMWT "ark:gunzip -c $latdir/lat.*.gz|" ark:- \| \
     lattice-add-penalty --word-ins-penalty=$wip ark:- ark:- \| \
     lattice-best-path --word-symbol-table=$symtab \
       ark:- ark,t:$dir/scoring/LMWT.$wip.tra || exit 1;

@@ -9,6 +9,8 @@ dependencies:
   - libflac
   - perl
   - pip
-  - python
+  - python=3.11
+  - pydrobert-kaldi
+  - sox
   - pip:
-    - git+https://github.com/kpu/kenlm.git
+    - git+https://github.com/sdrobert/kenlm.git

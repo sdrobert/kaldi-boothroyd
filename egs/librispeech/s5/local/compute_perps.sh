@@ -6,7 +6,7 @@
 # compute per-sentence perplexity of ARPA models
 
 cmd=run.pl
-nj=8
+nj=4
 cleanup=true
 
 echo "$0: $*"
@@ -31,6 +31,10 @@ exp="$3"
 logdir="${4:-"$exp/log"}"
 tmpdir="${5:-"$exp/tmp"}"
 
+set -e
+
+./utils/validate_data_dir.sh --no-feats "$data"
+
 for x in "$lm" "$data/text"; do
   if [ ! -f "$x" ]; then
     echo "'$x' is not a file"
@@ -38,9 +42,7 @@ for x in "$lm" "$data/text"; do
   fi
 done
 
-set -e
-
-utils/split_data.sh "$data" "$nj"
+utils/split_data.sh --per-utt "$data" "$nj"
 
 mkdir -p "$exp" "$tmpdir" "$logdir"
 
@@ -71,22 +73,21 @@ with open(txt_pth) as txt:
 print(f"processed {line_no + 1} utterances and {total_toks} tokens", file=sys.stderr)
 total_pp = 10 ** (-total_logprob / total_toks)
 print(f"total perplexity: {total_pp}", file=sys.stderr)
-' "$lm" "$data/split$nj/JOB/text" \> "$tmpdir/perp.JOB"
+' "$lm" "$data/split${nj}utt/JOB/text" \> "$tmpdir/perp.JOB"
 
 for (( n=1; n <= $nj; n+= 1 )); do
   cat "$tmpdir/perp.$n"
 done > "$tmpdir/perp"
 
-cut -d ' ' -f 1 "$data/text" > "$tmpdir/uttlist_text"
-cut -d ' ' -f 1 "$tmpdir/perp" > "$tmpdir/uttlist_perp"
-
-if ! diff "$tmpdir/uttlist_"{text,perp} 2> /dev/null; then
-  echo "Utterance list of perp file doesn't match transcript!"
+nw="$(cat "$data/wav.scp" | wc -l)"
+np="$(./utils/filter_scp.pl "$tmpdir/perp" "$data/wav.scp" | wc -l)"
+if [ "$nw" -ne "$np" ]; then
+  echo "$data/wav.scp and $tmpdir/perp have different utterances (or maybe unordered)!"
   echo "diff is:"
-  diff "$tmpdir/uttlist_"{text,perp}
+  diff <(cut -d ' ' -f 1 "$data/wav.scp") <(cut -d ' ' -f 1 "$tmpdir/perp")
   exit 1
 fi
 
 cp "$tmpdir/perp" "$exp/"
 
-$cleanup && rm -rf "$tmpdir"
+! $cleanup || rm -rf "$tmpdir"
