@@ -66,7 +66,7 @@ rm -f "$tsrc/"{feats.scp,cmvn.scp}
 for (( n=1; n <= nj; n+= 1 )); do
   paste -d ' ' $tmpdir/{dc,power}.$n.txt |
     awk -v "pref=$pref" -v "l0=$l0" '
-BEGIN {coeff=pref * exp(log(10) * l0 / 10)}
+BEGIN {coeff=pref * exp(log(10) * l0 / 40)}
 {print "sox - -t wav - dcshift",-$2,"vol",coeff / $4,"|"}' |
     paste -d ' ' $src/split$nj/$n/wav.scp -
 done | sort > "$tsrc/wav.scp"

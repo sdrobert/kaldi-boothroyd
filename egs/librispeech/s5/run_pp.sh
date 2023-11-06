@@ -3,9 +3,10 @@
 # Copyright 2023 Sean Robertson
 # Apache 2.0
 
-lm=tgmed  # which lm to use for computing perplexities
-mdl=tri4b   # which model to decode with
-subparts=2  # number of partitions to split with perplexity
+latlm=tgsmall # which lm to use to generate lattices
+lm=tgmed      # which lm to use for computing perplexities/rescoring
+mdl=tri4b     # which model to decode with
+subparts=2    # number of partitions to split with perplexity
 
 . ./cmd.sh
 . ./path.sh
@@ -13,7 +14,7 @@ subparts=2  # number of partitions to split with perplexity
 
 for x in \
     data/local/lm/lm_$lm.arpa.gz \
-    data/lang_test_$lm/G.fst \
+    data/lang_test_$latlm/G.fst \
     exp/$mdl/final.mdl; do
   if [ ! -f "$x" ]; then
     echo "'$x' is not a file!"
@@ -30,13 +31,29 @@ graphdir="$mdldir/graph_$lm"
 
 for part in dev_clean dev_other test_clean test_other; do
   partdir="data/$part"
+  latdecodedir="$mdldir/decode_${latlm}_$part"
   decodedir="$mdldir/decode_${lm}_$part"
   perpdir="exp/${lm}_perp_${part}"
 
-  # decode the entire partition in the usual way
-  if [ ! -f "$decodedir/.complete" ]; then
+  # decode the entire partition in the usual way using the lattice lm
+  if [ ! -f "$latdecodedir/.complete" ]; then
     steps/decode_fmllr.sh --nj 20 --cmd "$decode_cmd" \
-      $graphdir $partdir $decodedir
+      $graphdir $partdir $latdecodedir
+    touch "$latdecodedir/.complete"
+  fi
+
+  # now rescore with the intended lm
+  if [ ! -f "$decodedir/.complete" ]; then
+    if [ -f "data/lang_test_$lm/G.fst" ]; then
+        steps/lmrescore.sh --cmd "$decode_cmd" \
+          data/lang_test_{$latlm,$lm} $partdir $latdecodedir $decodedir
+    elif [ -f "data/lang_test_$lm/G.carpa" ]; then
+      steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
+        data/lang_test_{$latlm,$lm} $partdir $latdecodedir $decodedir
+    else
+      echo "neither G.fst nor G.carpa exists in data/lang_test_$lm"
+      exit 1
+    fi
     touch "$decodedir/.complete"
   fi
 
