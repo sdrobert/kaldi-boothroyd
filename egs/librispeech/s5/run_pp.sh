@@ -3,7 +3,7 @@
 # Copyright 2023 Sean Robertson
 # Apache 2.0
 
-lm=tgsmall  # which lm to use for computing perplexities
+lm=tgmed  # which lm to use for computing perplexities
 mdl=tri4b   # which model to decode with
 subparts=2  # number of partitions to split with perplexity
 
@@ -26,7 +26,7 @@ set -e
 mdldir="exp/$mdl"
 graphdir="$mdldir/graph_$lm"
 [ -f "$graphdir/HCLG.fst" ] || \
-  utils/mkgraph.sh data/lang_test_$lm exp/$mdl
+  utils/mkgraph.sh data/lang_test_$lm $mdldir $graphdir
 
 for part in dev_clean dev_other test_clean test_other; do
   partdir="data/$part"
@@ -45,7 +45,10 @@ for part in dev_clean dev_other test_clean test_other; do
     ./local/compute_perps.sh data/local/lm/lm_$lm.arpa.gz $partdir $perpdir
   
   # partition data directory by perplexity
-  ./local/split_data_dir_by_perp.sh data/$part $perpdir $subparts
+  if [ ! -f "$perpdir/.split.$subparts" ]; then
+    ./local/split_data_dir_by_perp.sh $partdir $perpdir $subparts
+    touch "$perpdir/.split.$subparts"
+  fi
 
   # score only the utterances in each partition
   for (( p=1; p <= subparts; p+=1 )); do
@@ -65,8 +68,8 @@ for (( tp=0; tp <= subparts; tp+=1 )); do  # tuning sub-part
   for (( ep=0; ep <= subparts; ep+=1 )); do  # eval sub-part
     for part in dev_clean dev_other test_clean test_other; do
       evaldir="$mdldir/decode_${lm}_$part"
-      [ $ep = 0 ] || tunedir="${tunedir}_perp${ep}_${subparts}"
-      steps/tuned_wer.sh "$tunedir" "$evaldir"
+      [ $ep = 0 ] || evaldir="${evaldir}_perp${ep}_${subparts}"
+      ./utils/tuned_wer.sh "$tunedir" "$evaldir"
     done
   done
 done

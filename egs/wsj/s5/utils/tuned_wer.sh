@@ -36,4 +36,4 @@ if [ ! -f "$edir/$best_param" ]; then
   echo "Best param in $tdir was $best_param, but not in $edir"
   exit 1
 fi
-echo "$(grep WER "$edir/$best_param") (tuned on $tdir)"
+echo "$(grep WER "$edir/$best_param") ($edir/$best_param, tuned on $tdir)"

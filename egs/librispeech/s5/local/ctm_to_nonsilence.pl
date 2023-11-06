@@ -6,15 +6,16 @@ use Pod::Usage;
 
 Getopt::Long::Configure ("bundling");
 
-my ($help, $man, $frame_shift, $samp_rate, $print_as) =
-  (0, 0, 0.01, 16000, "sec");
+my ($help, $man, $frame_shift, $samp_rate, $print_as, $sil) =
+  (0, 0, 0.01, 16000, "sec", "<eps>");
 
 GetOptions(
   'help' => \$help,
   'man' => \$man,
   'frame-shift=f' => \$frame_shift,
   'samp-rate=i' => \$samp_rate,
-  'print-as=s' => \$print_as) or pod2usage(2);
+  'print-as=s' => \$print_as,
+  "sil=s", \$sil) or pod2usage(2);
 pod2usage(1) if $help;
 pod2usage(-exitval => 0, -verbose => 2) if $man;
 
@@ -62,7 +63,8 @@ foreach my $line (<$ctm_file>) {
     my $no = $ctm_file->input_line_number();
     die("$0: $ctm_fn line $no: could not parse line\n");
   }
-  my ($reco, $channel, $begin, $len) = @toks[0..4];
+  my ($reco, $channel, $begin, $len, $word) = @toks[0..5];
+  next if ($word eq $sil);
   if ($last_reco && ($reco ne $last_reco)) {
     print $ns_file "$last_reco ";
     print $ns_file join(" ; ", @nonsil);
@@ -98,6 +100,7 @@ e.g. ctm_to_nonsilence.pl data/tri4b_ali_dev_clean/{ctm,nonsil}
   --frame-shift SEC              Frames/sec. Default is 0.01
   --samp-rate N                  Samples/sec. Default is 16000
   --print-as (secs|frames|samps) What to print intervals as. Defaults to secs
+  --sil TOKEN                    Silence token (to ignore). Defaults to <eps>
 
 =head1 DESCRIPTION
 
