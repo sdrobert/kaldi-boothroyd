@@ -4,8 +4,11 @@
 # Apache 2.0
 
 latlm=tgsmall # which lm to use to generate lattices
-lm=tgmed      # which lm to use for computing perplexities/rescoring
-mdl=tri4b     # which model to decode with
+lm=tgsmall    # which lm to use for computing perplexities/rescoring
+mdl=tri6b     # which model to decode with
+suffix=       # clean, other or empty for clean + other
+snr_low=-12   # lower bound (inclusive) of signal-to-noise ratio (SNR)
+snr_high=3    # upper bound (inclusive) of signal-to-noise ratio (SNR)
 subparts=2    # number of partitions to split with perplexity
 
 . ./cmd.sh
@@ -22,14 +25,58 @@ for x in \
   fi
 done
 
+if [ ! -z "$suffix" ] && \
+   [ "$suffix" != "_clean" ] && \
+   [ "$suffix" != "_other" ]; then
+  echo "--suffix must be empty or one of _clean, _other"
+  exit 1
+fi
+
 set -e
 
 mdldir="exp/$mdl"
-graphdir="$mdldir/graph_$lm"
+graphdir="$mdldir/graph_$latlm"
 [ -f "$graphdir/HCLG.fst" ] || \
-  utils/mkgraph.sh data/lang_test_$lm $mdldir $graphdir
+  utils/mkgraph.sh data/lang_test_$latlm $mdldir $graphdir
 
-for part in dev_clean dev_other test_clean test_other; do
+parts=( dev$suffix test$suffix )
+for part in "${parts[@]}"; do
+  npart="${part}_norm"
+
+  # combine clean + other (if applicable)
+  if [ -z "$suffix" ] && [ ! -f "data/$part/.complete" ]; then
+    ./utils/combine_data.sh "data/$part"{,_clean,_other}
+    touch data/$part/.complete
+  fi
+
+  # Normalize data volume to same reference average RMS
+  if [ ! -f "data/$npart/.complete" ]; then
+    ./local/normalize_data_volume.sh "data/$part" "data/$npart"
+    touch "data/$npart/.complete"
+  fi
+
+  # compute perplexity of utterance transcriptions.
+  # we do this only once per part and copy across SNRs b/c the perplexity
+  # doesn't change
+  [ -f "exp/${lm}_perp_${part}/perp" ] || \
+    ./local/compute_perps.sh data/local/lm/lm_$lm.arpa.gz data/$part "exp/${lm}_perp_${part}/perp"
+
+  for snr in $(seq $snr_low $snr_high); do
+    spart="${part}_snr$snr"
+    if [ ! -f "data/$spart/.complete" ]; then
+      # add noise at specific SNR, then compute feats + cmvn
+      ./local/add_noise.sh data/$npart $snr data/$spart mfcc
+      ./steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/$spart exp/make_mfcc/$spart mfcc
+      steps/compute_cmvn_stats.sh data/$spart exp/make_mfcc/$spart mfcc
+      mkdir -p "exp/${lm}_perp_${spart}"
+      cp -f "exp/${lm}_perp_${part}/perp" "exp/${lm}_perp_${spart}/perp"
+      touch "data/$spart/.complete"
+    fi
+    parts+=( $spart )
+  done
+done
+
+for part in "${parts[@]}"; do
   partdir="data/$part"
   latdecodedir="$mdldir/decode_${latlm}_$part"
   decodedir="$mdldir/decode_${lm}_$part"
@@ -57,9 +104,6 @@ for part in dev_clean dev_other test_clean test_other; do
     touch "$decodedir/.complete"
   fi
 
-  # compute perplexity of utterance transcriptions 
-  [ -f "$perpdir/perp" ] || \
-    ./local/compute_perps.sh data/local/lm/lm_$lm.arpa.gz $partdir $perpdir
   
   # partition data directory by perplexity
   if [ ! -f "$perpdir/.split.$subparts" ]; then
@@ -80,10 +124,10 @@ done
 
 # WERs
 for (( tp=0; tp <= subparts; tp+=1 )); do  # tuning sub-part
-  tunedir="$mdldir/decode_${lm}_dev_clean"
+  tunedir="$mdldir/decode_${lm}_dev"
   [ $tp = 0 ] || tunedir="${tunedir}_perp${tp}_${subparts}"
   for (( ep=0; ep <= subparts; ep+=1 )); do  # eval sub-part
-    for part in dev_clean dev_other test_clean test_other; do
+    for part in "${parts[@]}"; do
       evaldir="$mdldir/decode_${lm}_$part"
       [ $ep = 0 ] || evaldir="${evaldir}_perp${ep}_${subparts}"
       ./utils/tuned_wer.sh "$tunedir" "$evaldir"

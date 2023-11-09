@@ -85,7 +85,6 @@ This program reads
         if options.channel == -1 and wav.shape[0] != 1:
             logger.error(f"{utt}: expected mono; got {wav.shape[0]} channels")
         wav = np.square(wav[options.channel], dtype=np.float64)
-        wav *= options.scale_by**2
         n_wav = len(wav)
         if region_reader is None:
             power = float(wav.sum())
@@ -110,6 +109,7 @@ This program reads
                 else:
                     power += float(wav[start:end].sum())
                     samples += end - start
+        power *= options.scale_by**2
         if not samples:
             logger.warning(
                 f"utt {utt} has no samples to compute power over; setting to 0"

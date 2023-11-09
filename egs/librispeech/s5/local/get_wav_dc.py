@@ -41,7 +41,7 @@ def main(args=None):
     for utt_no, (utt, wav) in enumerate(reader.items()):
         if options.channel == -1 and wav.shape[0] != 1:
             logger.error(f"{utt}: expected mono; got {wav.shape[0]} channels")
-        wav = wav[options.channel].astype(np.float64)
+        wav = wav[options.channel]
         writer.write(utt, wav.mean() * options.scale_by)
 
     logger.info(f"Processed {utt_no + 1} entries")

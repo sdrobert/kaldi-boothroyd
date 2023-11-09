@@ -5,12 +5,14 @@ channels:
 
 dependencies:
   - compilers
+  - jupyter
   - kaldi
   - libflac
   - perl
   - pip
-  - python=3.11
   - pydrobert-kaldi
+  - python
+  - seaborn
   - sox
   - pip:
     - git+https://github.com/sdrobert/kenlm.git
