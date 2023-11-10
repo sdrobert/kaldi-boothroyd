@@ -3,6 +3,7 @@
 # Copyright 2023 Sean Robertson
 # Apache 2.0
 
+pretrained_dir=/ais/hal9000/sdrobert/kaldi_libri_models/
 latlm=tgsmall # which lm to use to generate lattices
 lm=tgsmall    # which lm to use for computing perplexities/rescoring
 mdl=tri6b     # which model to decode with
