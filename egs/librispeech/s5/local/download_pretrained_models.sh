@@ -14,6 +14,7 @@ fi
 
 declare -A FILE2SIZE=(
   ["0013_librispeech_v1_lm"]="197387188"
+  ["0013_librispeech_v1_chain"]="214046656"
 )
 
 if [ $# -ne 3 ]; then

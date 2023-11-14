@@ -115,7 +115,10 @@ This program reads
                 f"utt {utt} has no samples to compute power over; setting to 0"
             )
         else:
-            logger.info(f"utt {utt} has power {power} over {samples} samples")
+            logger.info(
+                f"utt {utt} has power {power} over {samples} samples "
+                f"(avg. {power / samples})"
+            )
             total_power += power
             total_samples += samples
             if options.normalize:
