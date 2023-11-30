@@ -12,7 +12,9 @@ dependencies:
   - pip
   - pydrobert-kaldi
   - python
-  - seaborn
   - sox
+  - plotly
+  - pingouin
+  - python-kaleido
   - pip:
     - git+https://github.com/sdrobert/kenlm.git

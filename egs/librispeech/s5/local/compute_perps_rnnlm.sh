@@ -7,8 +7,6 @@
 
 # compute per-sentence perplexity of RNNLM
 
-[ -f ./path.sh ] && . ./path.sh
-
 cmd=run.pl
 nj=1
 cleanup=true
