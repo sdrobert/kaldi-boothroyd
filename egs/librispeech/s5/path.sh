@@ -1,7 +1,7 @@
 export KALDI_ROOT=`pwd`/../../..
 if [ "$CONDA_DEFAULT_ENV" != "kaldi-boothroyd" ]; then
   if [ "$(hostname)" = "hal9000" ]; then
-    . /ais/hal9000/sdrobert/mamba-envs/kaldi-boothroyd/lib/python3.11/venv/scripts/common/activate || exit 1
+    . /ais/hal9000/sdrobert/mamba-envs/kaldi-boothroyd/lib/python3.*/venv/scripts/common/activate || exit 1
   else
     conda activate kaldi-boothroyd || exit 1
   fi
