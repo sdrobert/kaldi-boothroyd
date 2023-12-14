@@ -20,6 +20,7 @@ __all__ = [
     "read_perps_as_df",
     "read_text_as_df",
     "bin_series",
+    "agg_mean_by_lens",
 ]
 
 
@@ -167,3 +168,23 @@ def bin_series(
         ),
         bin_bounds,
     )
+
+
+def agg_mean_by_lens(
+    df: pd.DataFrame,
+    lens: pd.Series,
+    val_columns: Union[str, Sequence[str]],
+    group_by: Union[str, Sequence[str]],
+) -> pd.DataFrame:
+    df = df.copy().join(lens)
+    df[val_columns] *= lens
+    df = df.groupby(group_by, observed=True)
+    if isinstance(val_columns, str):
+        df = df[[val_columns, lens.name]]
+    else:
+        val_columns = list(val_columns)
+        val_columns.append(lens.name)
+        df = df[val_columns]
+    df = df.sum()
+    df[val_columns] /= df[lens.name]
+    return df.drop(lens.name, axis=1).reset_index()
