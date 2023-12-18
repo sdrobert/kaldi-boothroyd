@@ -6,7 +6,6 @@ import re
 from typing import Optional, Sequence, Tuple, Union, Callable
 from glob import iglob
 from math import log
-
 import pandas as pd
 
 from pydrobert.kaldi.io.table_streams import open_table_stream
@@ -172,19 +171,27 @@ def bin_series(
 
 def agg_mean_by_lens(
     df: pd.DataFrame,
-    lens: pd.Series,
+    lens_column: str,
     val_columns: Union[str, Sequence[str]],
     group_by: Union[str, Sequence[str]],
 ) -> pd.DataFrame:
-    df = df.copy().join(lens)
-    df[val_columns] *= lens
-    df = df.groupby(group_by, observed=True)
+    df = df.copy()
     if isinstance(val_columns, str):
-        df = df[[val_columns, lens.name]]
+        val_columns = [val_columns]
     else:
         val_columns = list(val_columns)
-        val_columns.append(lens.name)
-        df = df[val_columns]
-    df = df.sum()
-    df[val_columns] /= df[lens.name]
-    return df.drop(lens.name, axis=1).reset_index()
+    if lens_column in val_columns:
+        val_columns.remove(lens_column)
+        drop_lens = False
+    else:
+        drop_lens = True
+    for val_column in val_columns:
+        df[val_column] = df[val_column] * df[lens_column]
+
+    df = df.groupby(group_by, observed=True)[val_columns + [lens_column]].sum()
+    df = df.reset_index()
+    for val_column in val_columns:
+        df[val_column] = df[val_column] / df[lens_column]
+    if drop_lens:
+        df = df.drop(lens_column, axis=1)
+    return df.reset_index()
