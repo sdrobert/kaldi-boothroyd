@@ -116,9 +116,9 @@ def _wer_entry_fix(dict_: dict):
             dict_[key] = int(val)
         elif key == "snr":
             if val.startswith("snr"):
-                dict_[key] = int(val[3:])
+                dict_[key] = float(val[3:])
             else:
-                dict_[key] = None
+                dict_[key] = float("inf")
         elif key == "part":
             dict_[key] = val.replace("_", "-")
     dict_["acc"] = 1 - dict_["wer"]
@@ -188,7 +188,7 @@ def agg_mean_by_lens(
     for val_column in val_columns:
         df[val_column] = df[val_column] * df[lens_column]
 
-    df = df.groupby(group_by, observed=True)[val_columns + [lens_column]].sum()
+    df = df.groupby(group_by, observed=False)[val_columns + [lens_column]].sum()
     df = df.reset_index()
     for val_column in val_columns:
         df[val_column] = df[val_column] / df[lens_column]
