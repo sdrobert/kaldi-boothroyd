@@ -113,7 +113,7 @@ for spart in "${parts[@]}"; do
   else
     decodedir="$mdldir/decode_${latlm}_rescore_${reslm}_$spart"
   fi
-  
+
   # ivectors for tdnn
   if [[ "$mdl" =~ tdnn ]] && [ ! -f "$exp/$ivecmdl/ivectors_${spart}/.complete" ]; then
     steps/online/nnet2/extract_ivectors_online.sh --cmd "$train_cmd" --nj 20 \
@@ -149,9 +149,13 @@ for spart in "${parts[@]}"; do
         "$decodedir"
     else
       if [ -f "$data/lang_test_$reslm/G.fst" ]; then
+          tmplatdecodedir="$exp/$mdl/tmp_decode"
+          rm -rf "$tmplatdecodedir"
+          cp -rf "$latdecodedir" "$tmplatdecodedir"
           steps/lmrescore.sh $self_loop_args --cmd "$decode_cmd" \
-            "$data/"lang_test_{$latlm,$reslm} "$partdir" "$latdecodedir" \
+            "$data/"lang_test_{$latlm,$reslm} "$partdir" "$tmplatdecodedir" \
             "$decodedir"
+          rm -rf "$tmplatdecodedir"
       else
         steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
           $data/lang_test_{$latlm,$reslm} "$partdir" "$latdecodedir" \
