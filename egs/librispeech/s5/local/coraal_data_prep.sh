@@ -1,6 +1,7 @@
 #! /usr/bin/env bash
 
 # Copyright 2024 Sean Robertson
+# FIXME(sdrobert): age groups are not standardized. Maybe should re-code them
 
 confdir="conf"
 
@@ -22,7 +23,7 @@ if [[ " " =~ "$dst" ]]; then
     exit 1
 fi
 
-for x in coraal_spk2reco; do
+for x in coraal_recos; do
     if [ ! -f "$confdir/$x" ]; then
         echo "$0: '$confdir/$x' is not a file!"
         exit 1
@@ -51,11 +52,8 @@ set -eo pipefail
 mkdir -p $dst
 
 # remove comments and empty lines
-cut -d '#' -f 1 "$confdir/coraal_spk2reco" |
-    sed '/^ *$/d' | sort > $dst/spk2reco
-
-# reverse spk2reco map
-cat $dst/spk2reco | spk2utt_to_utt2spk.pl > $dst/reco2spk
+cut -d '#' -f 1 "$confdir/coraal_recos" |
+    sed '/^ *$/d' | sort > $dst/recos
 
 # compile a list of files in the source directory ending with {wav,txt}
 for x in wav txt; do
@@ -68,4 +66,14 @@ done
 check_for_unpaired_utts $dst/{wav,txt}list
 
 # make sure all recordings have wav files
-check_for_unpaired_utts $dst/{reco2spk,wavlist}
+check_for_unpaired_utts $dst/{recos,wavlist}
+
+# report any wav files missing from recording list. This could be because of
+# updates to CORAAL that we haven't integrated yet.
+check_for_unpaired_utts $dst/{wavlist,recos} false
+
+# sanitize all transcripts and write to stm file
+filter_scp.pl $dst/{wav,txt}list |
+    cut -d ' ' -f 2 |
+    xargs -P 8 -I % local/coraal_txt_to_ctm.py % |
+    sort +0 -1 +1 -2 +3nb -4 > $dst/stm
