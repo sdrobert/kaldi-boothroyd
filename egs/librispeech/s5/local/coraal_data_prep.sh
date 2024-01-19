@@ -30,6 +30,11 @@ for x in coraal_recos; do
     fi
 done
 
+if ! which sox > /dev/null; then
+    echo "sox is not available!"
+    exit 1
+fi
+
 check_for_unpaired_utts() {
     a="$1"
     b="$2"
@@ -49,7 +54,7 @@ check_for_unpaired_utts() {
 
 set -eo pipefail
 
-mkdir -p $dst
+mkdir -p $dst/links
 
 # remove comments and empty lines
 cut -d '#' -f 1 "$confdir/coraal_recos" |
@@ -72,8 +77,56 @@ check_for_unpaired_utts $dst/{recos,wavlist}
 # updates to CORAAL that we haven't integrated yet.
 check_for_unpaired_utts $dst/{wavlist,recos} false
 
+# construct soft links to wav files in order to avoid spaces in wav.scp
+cut -d ' ' -f 2- $dst/wavlist |
+    xargs -P4 -I % bash -c '
+bn=$(basename "$1")
+src="$(cd "$(dirname "$1")"; pwd -P)/$bn"
+ln -sf "$src" $2/$bn' -- % $dst/links
+
+# construct wav.scp (remix down to 16kHz, single channel)
+cut -d ' ' -f 1 $dst/wavlist |
+    awk -v d=$dst/links '{
+print $1, "sox "d"/"$1".wav -t wav -b 16 - rate 16k remix 1 |"
+}' > $dst/wav.scp
+
 # sanitize all transcripts and write to stm file
 filter_scp.pl $dst/{wav,txt}list |
     cut -d ' ' -f 2 |
     xargs -P 8 -I % local/coraal_txt_to_ctm.py % |
     sort +0 -1 +1 -2 +3nb -4 > $dst/stm
+
+# spk2gender file
+paste -d ' ' \
+        <(cut -d ' ' -f 3 $dst/stm) <(cut -d '_' -f 9 $dst/stm) |
+    sort -u > $dst/spk2gender
+
+# build segment and transcripts files from stm
+#
+# utterance IDs take the form
+#
+#   <spkr>_<reco>_<start_cs>_<end_cs>
+#   e.g. ATL_se0_ag1_f_01_ATL_se0_ag1_f_01_1_000044_000241
+#
+# where "cs" is centiseconds.
+#
+# The speaker/recording looks a bit redundant, except that speakers other than
+# the primary speaker can be speaking in the same file.
+awk '{
+    start_cs=$4 * 100; end_cs=$5 * 100;
+    printf "%s_%s_%06.0f_%06.0f %s %04.02f %04.02f", $3, $1, start_cs, end_cs, $1, $4, $5;
+    for (i=6; i < NF; ++i) printf " %s", $i;
+    printf "\n";
+}' $dst/stm |
+    tee >(cut -d ' ' -f 1-4 | sort > $dst/segments) |
+    cut -d ' ' -f 1,5- | sort > $dst/text
+
+# utt2spk file
+paste -d ' ' \
+      <(cut -d ' ' -f 1 $dst/segments) <(cut -d '_' -f 1-5 $dst/segments) \
+      > $dst/utt2spk
+
+# utterances by region
+for x in $(cut -d _ -f 1 $dst/utt2spk | sort -u); do
+    cut -d ' ' -f 1 $dst/utt2spk | grep '^'"$x"'_' > $dst/utts_from_$x
+done

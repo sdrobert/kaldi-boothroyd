@@ -12,16 +12,19 @@ SPKR_PATTERN = re.compile(
 )
 
 SKIP_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"<[^>]+>"),  # non-speech noises
+    re.compile(r"\/[^/]+\/"),  # unintelligible, misspoken, redacted, etc.
     re.compile(r"\["),  # overlapping speech
     re.compile(r"[(]"),  # some form of line-level note
+    re.compile(r"-"),  # restarts and spelling out acronyms
 )
 
 REPLACE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"<[^>]+>"), "<SPOKEN_NOISE>"),  # non-speech noises
-    (re.compile(r"\/[^/]+\/"), "<UNK>"),  # unintelligible, misspoken, redacted, etc.
+    # (re.compile(r"<[^>]+>"), "<SPOKEN_NOISE>"),  # non-speech noises
+    # (re.compile(r"\/[^/]+\/"), "<UNK>"),  # unintelligible, misspoken, redacted, etc.
+    # (re.compile(r"-"), " "),  # restarts and spelling out acronyms
     (re.compile(r"[.,?!]"), " "),  # punctuation
-    (re.compile(r"-"), " "),  # restarts and spelling out acronyms
-    (re.compile(r"  +"), " "),  # multiple spaces
+    (re.compile(r"\s+"), " "),  # one or more whitespace chars to space
     (re.compile(r"^ "), ""),  # sentence-initial space
     (re.compile(r" $"), ""),  # sentence-final space
 )
@@ -31,7 +34,7 @@ def main(args=None):
     "Convert CORAAL transcription file into STM transcription, with filtering"
 
     parser = argparse.ArgumentParser(description=main.__doc__)
-    parser.add_argument("--precision", type=int, default=3)
+    parser.add_argument("--precision", type=int, default=2)
     parser.add_argument("--channel", default="A")
     parser.add_argument("--min-duration", type=float, default=1.0)
     parser.add_argument("--min-words", type=int, default=3)

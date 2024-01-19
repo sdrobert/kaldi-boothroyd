@@ -20,7 +20,7 @@ declare -A MNAME2PNAME=(
   ["nnet3_cleaned/extractor"]="0013_librispeech_v1_extractor"
 )
 
-set -e
+set -eo pipefail
 
 for mname in "$perplm"; do
   pname="${MNAME2PNAME[$mname]}"
@@ -38,7 +38,7 @@ needed_files=( $data/$part/text )
 if [[ "$perplm" =~ rnnlm ]]; then
   needed_files+=( "$exp/$perplm/final.raw" )
 else
-  needed_files+=( "$data/local/lm_$perplm.arpa.gz" )
+  needed_files+=( "$data/local/lm/lm_$perplm.arpa.gz" )
 fi
 for x in "${needed_files[@]}"; do
   if [ ! -f "$x" ]; then
@@ -56,7 +56,7 @@ if [ ! -f "$exp/${perplm}_perp_${part}/perp" ]; then
       "$exp/$perplm" "$data/$part" "$exp/${perplm}_perp_${part}/perp"
   else
     ./local/compute_perps.sh \
-      "$data/local/lm/lm_$lm.arpa.gz" "$data/$part" \
+      "$data/local/lm/lm_$perplm.arpa.gz" "$data/$part" \
       "$exp/${perplm}_perp_${part}/perp"
   fi
 fi

@@ -55,7 +55,7 @@ done
 
 needed_files=(
   $exp/$mdl/final.mdl $data/lang_test_$latlm/G.fst
-  $data/$part/{text,wav.scp,feats.scp,cmvn.scp}
+  $data/$part/{text,wav.scp}
 )
 if ! [[ "$reslm" = "$latlm" ]]; then
   if [[ "$reslm" =~ rnnlm ]]; then

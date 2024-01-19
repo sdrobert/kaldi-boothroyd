@@ -79,12 +79,17 @@ for (( n=1; n <= $nj; n+= 1 )); do
   cat "$tmpdir/perp.$n"
 done > "$tmpdir/perp"
 
-nw="$(cat "$data/wav.scp" | wc -l)"
-np="$(./utils/filter_scp.pl "$tmpdir/perp" "$data/wav.scp" | wc -l)"
+if [ -f "$data/segments" ]; then
+  w="$data/segments"
+else
+  w="$data/wav.scp"
+fi
+nw="$(cat "$w" | wc -l)"
+np="$(./utils/filter_scp.pl "$tmpdir/perp" "$w" | wc -l)"
 if [ "$nw" -ne "$np" ]; then
-  echo "$data/wav.scp and $tmpdir/perp have different utterances (or maybe unordered)!"
+  echo "$w and $tmpdir/perp have different utterances (or maybe unordered)!"
   echo "diff is:"
-  diff <(cut -d ' ' -f 1 "$data/wav.scp") <(cut -d ' ' -f 1 "$tmpdir/perp")
+  diff <(cut -d ' ' -f 1 "$w") <(cut -d ' ' -f 1 "$tmpdir/perp")
   exit 1
 fi
 
