@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-# Copyright 2023 Sean Robertson
+# Copyright 2024 Sean Robertson
 # Apache 2.0
 
 # Copies from local/download_and_untar.sh
@@ -8,14 +8,22 @@
 
 remove_archive=false
 blacklist="LES_metadata_2018.10.06.txt VLD_metadata_2018.10.06.txt"
+single=false
 
 . ./cmd.sh
 . ./path.sh
 . parse_options.sh
 
+
 if [ $# -ne 2 ]; then
   echo "Usage: $0 [options] <store-base> <manifest-file-or-url>"
   echo "e.g.: $0 /ais/hal9000/sdrobert/coraal http://lingtools.uoregon.edu/coraal/coraal_download_list.txt"
+  echo "      $0 --single true /ais/hal9000/sdrobert/coraal https://github.com/stanford-policylab/asr-disparities/raw/master/input/CORAAL_transcripts.csv"
+  echo ""
+  echo "Options:"
+  echo " --remove-archive {true|false}                   Delete archives after they're downloaded (deft: $remove_archive)"
+  echo " --blacklist '<basename 1> [<basename 2> ...]'   Files not to download (deft: $blacklist)"
+  echo " --single {true|false}                           2nd arg is manifest (false) or file to download (true) (deft: $single)"
   exit 1
 fi
 
@@ -33,6 +41,7 @@ declare -A FILE2SIZE=(
   ["ATL_se0_ag1_f_02_1.wav"]="168041472"
   ["ATL_textfiles_2020.05.tar.gz"]="512506"
   ["ATL_textgrids_2020.05.tar.gz"]="847530"
+  ["CORAAL_transcripts.csv"]="6089928"
   ["CORAALUserGuide_current.pdf"]="1102468"
   ["DCA_audio_part01_2018.10.06.tar.gz"]="721501810"
   ["DCA_audio_part02_2018.10.06.tar.gz"]="625840650"
@@ -114,12 +123,16 @@ declare -A FILE2SIZE=(
 
 set -eo pipefail
 
-if [ -f "$manifest" ]; then
-    echo "$manifest is a file. Reading"
-    readarray -t filelist < "$manifest"
+if $single; then
+  filelist=( "$manifest" )
 else
-    echo "$manifest is not a file. Assuming a URL"
-    filelist=( $(wget --no-check-certificate "$manifest" -O -) )
+  if [ -f "$manifest" ]; then
+      echo "$manifest is a file. Reading"
+      readarray -t filelist < "$manifest"
+  else
+      echo "$manifest is not a file. Assuming a URL"
+      filelist=( $(wget --no-check-certificate "$manifest" -O -) )
+  fi
 fi
 
 for full_url in "${filelist[@]}"; do

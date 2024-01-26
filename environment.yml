@@ -1,20 +1,27 @@
 name: kaldi-boothroyd
 
 channels:
+  - pytorch
   - conda-forge
 
 dependencies:
   - compilers
   - jupyter
-  - kaldi
+  - kaldi=*=cuda*
   - libflac
   - perl
-  - pip
-  - pydrobert-kaldi
-  - python
-  - sox
-  - plotly
   - pingouin
+  - pip
+  - plotly
+  - pydrobert-kaldi
+  - python<3.12
   - python-kaleido
+  - pytorch=*=cuda*
+  - pytorch-mutex=*=cuda
+  - sox
+  - transformers
+  - huggingface_hub
+  - sentencepiece
+  - ruamel.yaml
   - pip:
     - git+https://github.com/sdrobert/kenlm.git

@@ -63,10 +63,10 @@ nfile="$ndir/$noise_type.$max_dur.wav"
 # called
 sox -R -b 16 -r 16k -n $nfile synth $max_dur $noise_type vol 0.99
 
-./utils/split_data.sh "$src" "$nj"
+./utils/split_data.sh --per-utt "$src" "$nj"
 
 for (( n=1; n <= nj; n+=1 )); do
-  ./utils/filter_scp.pl "$src/split$nj/$n/wav.scp" "$src/reco2dur" |
+  ./utils/filter_scp.pl "$src/split${nj}utt/$n/wav.scp" "$src/reco2dur" |
     awk -v "nfile=$nfile" '{print $1,"sox",nfile, "-t wav - trim 0",$2,"|"}' \
       > "$tmpdir/noise.wav.$n.scp" &
 done
@@ -75,12 +75,12 @@ wait
 $cmd JOB=1:$nj $logdir/get_noise_power.JOB.log \
   ./local/get_wav_power.py \
     --magnitude=true --normalize=true --inv-scale-by "$samp_max" \
-    scp:$tmpdir/noise.wav.JOB.scp ark,t:$tmpdir/noise_mag.JOB.txt
+    scp,s,o:$tmpdir/noise.wav.JOB.scp ark,t:$tmpdir/noise_mag.JOB.txt
 
 $cmd JOB=1:$nj $logdir/get_wav_power.JOB.log \
   ./local/get_wav_power.py \
     --magnitude=true  --normalize=true --inv-scale-by "$samp_max" \
-    scp:$src/split$nj/JOB/wav.scp ark,t:$tmpdir/sig_mag.JOB.txt
+    scp,s,o:$src/split${nj}utt/JOB/wav.scp ark,t:$tmpdir/sig_mag.JOB.txt
 
 for (( n=1; n <= nj; n+= 1)); do
   # vol=sqrt(sigpow/(10 ** (SNR / 10) * noisepow))
@@ -119,12 +119,12 @@ echo "Copying"
 rm -f "$tsrc/"{feats.scp,cmvn.scp}
 
 for (( n=1; n <= nj; n+=1 )); do
-  ./utils/filter_scp.pl "$src/split$nj/$n/wav.scp" "$src/reco2dur" |
+  ./utils/filter_scp.pl "$src/split${nj}utt/$n/wav.scp" "$src/reco2dur" |
     paste -d ' ' "$tmpdir/noise_vol.$n.txt" - |
     awk -v nfile=$nfile \
       '{print "sox -m - -v",$2,nfile,"-t wav - trim 0",$4,"|"}' |
-    paste -d ' ' $src/split$nj/$n/wav.scp -
-done | sort > "$tsrc/wav.scp"
+    paste -d ' ' "$src/split${nj}utt/$n/wav.scp" -
+done | sort -k 1,1 -u > "$tsrc/wav.scp"
 
 if $validate; then
   ./utils/validate_data_dir.sh --no-feats "$tsrc"

@@ -62,7 +62,7 @@ def _read_as_df(
                     dict_ = {"utt": utt, file_pattern: val}
                 else:
                     match = file_pattern.match(line)
-                    assert match, f"{path}:{no + 1}"
+                    assert match, f"{path}@{no + 1}: {line}"
                     dict_ = match.groupdict()
                 dict_.update(path_dict)
                 if entry_fix:
@@ -98,7 +98,7 @@ def read_text_as_df(
 
 WER_PATH_PATTERN = re.compile(
     r"^.*/(?P<mdl>[^/]+)/decode_(?P<latlm>[^_]+)(?:_rescore_(?P<reslm>[^/]+))?"
-    r"_(?P<part>(?:dev|test)_(?:clean|other))(:?_hires)?/(?P<snr>[^_]+)/"
+    r"_(?P<part>[^_/]+(?:_clean|_other)?)(?:_hires)?/(?P<snr>[^_]+)/"
     r"(?:utt)?wer_best$"
 )
 
@@ -128,7 +128,7 @@ def read_best_wers_as_df(
     glob: str = "../exp/**/wer_best",
     path_pattern: re.Pattern = WER_PATH_PATTERN,
     file_pattern: re.Pattern = re.compile(
-        r"%WER (?P<wer>\d\d?.\d\d) \[ \d+ / \d+, (?P<ins>\d+) ins, (?P<del>\d+) del, "
+        r"%WER (?P<wer>\d+\.\d\d) \[ \d+ / \d+, (?P<ins>\d+) ins, (?P<del>\d+) del, "
         r"(?P<sub>\d+) sub \] .*/wer_(?P<lmwt>\d+)_(?P<wip>[\d.]+)\w*$"
     ),
 ) -> pd.DataFrame:
@@ -195,3 +195,7 @@ def agg_mean_by_lens(
     if drop_lens:
         df = df.drop(lens_column, axis=1)
     return df.reset_index()
+
+
+def boothroyd_fit(num_series : pd.Series, denom_series : pd.Series, is_log : bool = True, add_intercept : bool = False) -> pd.DataFrame:
+    ...

@@ -16,6 +16,8 @@ fi
 gdir="$1"
 sdir="$2"
 
+echo "$gdir" "$sdir"
+
 symtab="$gdir/words.txt"
 ref="$sdir/test_filt.txt"
 tra_files=( "$sdir/"*.tra )

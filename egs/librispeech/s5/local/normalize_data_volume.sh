@@ -52,22 +52,22 @@ set -e
 
 mkdir -p "$tsrc" "$logdir" "$dst"
 
-./utils/split_data.sh "$src" "$nj"
+./utils/split_data.sh --per-utt "$src" "$nj"
 
 $cmd JOB=1:$nj $logdir/get_wav_dc.JOB.log \
   ./local/get_wav_dc.py --inv-scale-by "$samp_max" \
-  "scp:$src/split$nj/JOB/wav.scp" "ark,t:$tmpdir/dc.JOB.txt"
+  "scp,s,o:$src/split${nj}utt/JOB/wav.scp" "ark,t:$tmpdir/dc.JOB.txt"
 
 for (( n=1; n <= nj; n+= 1 )); do
   awk '{print "sox - -t wav - dcshift",-$2,"|"}' "$tmpdir/dc.$n.txt" |
-    paste -d ' ' $src/split$nj/$n/wav.scp - > "$tmpdir/wav.offset.$n.scp" &
+    paste -d ' ' $src/split${nj}utt/$n/wav.scp - > "$tmpdir/wav.offset.$n.scp" &
 done
 wait
 
 $cmd JOB=1:$nj $logdir/get_wav_power.JOB.log \
   ./local/get_wav_power.py \
     --magnitude=true --normalize=true --inv-scale-by "$samp_max" \
-    scp:$tmpdir/wav.offset.JOB.scp ark,t:$tmpdir/mag.JOB.txt
+    scp,s,o:$tmpdir/wav.offset.JOB.scp ark,t:$tmpdir/mag.JOB.txt
 
 # copy the data directory over to tsrc. This makes it easier to copy
 # only the relevant files to dir
@@ -80,14 +80,15 @@ for (( n=1; n <= nj; n+= 1 )); do
     awk -v "pref=$pref" -v "l0=$l0" '
 BEGIN {coeff=pref * exp(log(10) * l0 / 20)}
 {print "sox - -t wav - dcshift",-$2,"vol",coeff / $4,"|"}' |
-    paste -d ' ' $src/split$nj/$n/wav.scp -
-done | sort > "$tsrc/wav.scp"
+    paste -d ' ' $src/split${nj}utt/$n/wav.scp -
+done | sort -k 1,1 -u > "$tsrc/wav.scp"
 
 if $validate; then
   ./utils/validate_data_dir.sh --no-feats "$tsrc"
   
   ./local/get_wav_power.py \
-    --normalize=true --inv-scale-by "$samp_max" "scp:$tsrc/wav.scp" "ark:-" 2> /dev/null |
+      --normalize=true --inv-scale-by \
+      "$samp_max" "scp,s,o:$tsrc/wav.scp" "ark:-" 2> /dev/null |
     python -c "l0=$l0;pref=$pref;"'
 from pydrobert.kaldi.io import open
 import numpy as np

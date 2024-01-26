@@ -84,12 +84,6 @@ bn=$(basename "$1")
 src="$(cd "$(dirname "$1")"; pwd -P)/$bn"
 ln -sf "$src" $2/$bn' -- % $dst/links
 
-# construct wav.scp (remix down to 16kHz, single channel)
-cut -d ' ' -f 1 $dst/wavlist |
-    awk -v d=$dst/links '{
-print $1, "sox "d"/"$1".wav -t wav -b 16 - rate 16k remix 1 |"
-}' > $dst/wav.scp
-
 # sanitize all transcripts and write to stm file
 filter_scp.pl $dst/{wav,txt}list |
     cut -d ' ' -f 2 |
@@ -115,11 +109,21 @@ paste -d ' ' \
 awk '{
     start_cs=$4 * 100; end_cs=$5 * 100;
     printf "%s_%s_%06.0f_%06.0f %s %04.02f %04.02f", $3, $1, start_cs, end_cs, $1, $4, $5;
-    for (i=6; i < NF; ++i) printf " %s", $i;
+    for (i=6; i <= NF; ++i) printf " %s", $i;
     printf "\n";
 }' $dst/stm |
     tee >(cut -d ' ' -f 1-4 | sort > $dst/segments) |
     cut -d ' ' -f 1,5- | sort > $dst/text
+
+# get list of recordings (with at least one utterance)
+cut -d ' ' -f 2 $dst/segments | sort -u > $dst/recos
+
+# construct wav.scp (remix down to 16kHz, single channel)
+cut -d ' ' -f 1 $dst/wavlist |
+    awk -v d=$dst/links '{
+print $1, "sox "d"/"$1".wav -t wav -b 16 - rate 16k remix 1 |"
+}' |
+    filter_scp.pl $dst/recos > $dst/wav.scp
 
 # utt2spk file
 paste -d ' ' \

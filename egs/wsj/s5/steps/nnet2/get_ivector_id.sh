@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Copyright (c) 2016, Johns Hopkins University (Yenda Trmal <jtrmal@gmail.com>)
 # License: Apache 2.0
+#
+# modified by Sean Robertson to skip unset variable check (mucks with conda)
 
 # Begin configuration section.
 # End configuration section
 set -e -o pipefail
-set -o nounset                              # Treat unset variables as an error
+# set -o nounset                              # Treat unset variables as an error
 
 # End configuration section.
 
