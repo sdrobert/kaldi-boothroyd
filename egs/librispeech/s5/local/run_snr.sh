@@ -6,7 +6,6 @@
 conf=conf      # configuration directory
 exp=exp        # experiment directory
 data=data      # data directory
-mfcc=mfcc      # mfcc (and other feat archive) directory
 latlm=tgsmall  # which lm to use to generate lattices
 reslm=tgsmall  # which lm to use for lattice rescoring
 mdl=chain_cleaned/tdnn_1d_sp      # which model to decode with
@@ -16,7 +15,7 @@ snr_low=-10      # lower bound (inclusive) of signal-to-noise ratio (SNR)
 snr_high=30      # upper bound (inclusive) of signal-to-noise ratio (SNR)
 pretrained_store=/ais/hal9000/sdrobert/librispeech_models  # where pretrained models are downloaded to
 pretrained_url=https://kaldi-asr.org/models/13  # where to download pretrained models from
-use_gpu=true
+use_gpu=false
 
 . ./cmd.sh
 . ./path.sh
@@ -90,9 +89,9 @@ if [ ! -f "$data/$npart/.complete" ]; then
   ./local/normalize_data_volume.sh "$data/$part" "$data/$npart"
   ./steps/make_mfcc.sh \
     --mfcc-config "$conf/mfcc${mfcc_suffix}.conf" --cmd "$train_cmd" --nj 40 \
-    $data/$npart $exp/make_mfcc/$npart $mfcc
+    $data/$npart $exp/make_mfcc/$npart
   utils/fix_data_dir.sh $data/$npart
-  steps/compute_cmvn_stats.sh $data/$npart $exp/make_mfcc/$npart $mfcc
+  steps/compute_cmvn_stats.sh $data/$npart $exp/make_mfcc/$npart
   touch "$data/$npart/.complete"
 fi
 
@@ -100,12 +99,12 @@ for snr in $(seq $snr_low $snr_high); do
   spart="${part}${mfcc_suffix}/snr$snr"
   if [ ! -f "$data/$spart/.complete" ]; then
     # add noise at specific SNR, then compute feats + cmvn
-    ./local/add_noise.sh $data/$npart $snr $data/$spart $mfcc
+    ./local/add_noise.sh $data/$npart $snr $data/$spart
     ./steps/make_mfcc.sh --mfcc-config "$conf/mfcc${mfcc_suffix}.conf" \
       --cmd "$train_cmd" --nj 40 \
-      $data/$spart $exp/make_mfcc/$spart $mfcc
+      $data/$spart $exp/make_mfcc/$spart
     utils/fix_data_dir.sh $data/$spart
-    steps/compute_cmvn_stats.sh $data/$spart $exp/make_mfcc/$spart $mfcc
+    steps/compute_cmvn_stats.sh $data/$spart $exp/make_mfcc/$spart
     touch "$data/$spart/.complete"
   fi
   parts+=( $spart )
@@ -129,7 +128,7 @@ for spart in "${parts[@]}"; do
 
     # ivectors for tdnn
     if [[ "$mdl" =~ tdnn ]] && [ ! -f "$exp/$ivecmdl/ivectors_${spart}/.complete" ]; then
-      steps/online/nnet2/extract_ivectors_online.sh --cmd "$train_cmd" --nj 20 \
+      steps/online/nnet2/extract_ivectors_online.sh --cmd "$train_cmd" --nj 10 \
         "$data/$spart" "$exp/$ivecmdl" "$exp/$ivecmdl/ivectors_${spart}"
       touch "$exp/$ivecmdl/ivectors_${spart}/.complete"
     fi
@@ -141,12 +140,12 @@ for spart in "${parts[@]}"; do
       tmplatdecodedir="$exp/$mdl/tmp_decode"
       if [[ "$mdl" =~ tdnn ]]; then
         steps/nnet3/decode.sh --acwt 1.0 --post-decode-acwt 10.0 \
-          --use-gpu $use_gpu --num-threads 2 \
-          --nj 20 --cmd "$decode_cmd" \
+          --use-gpu $use_gpu \
+          --nj 10 --cmd "$decode_cmd" \
           --online-ivector-dir "$exp/$ivecmdl/ivectors_${spart}" \
           "$graphdir" "$partdir" "$tmplatdecodedir"
       else
-        steps/decode_fmllr.sh --nj 20 --cmd "$decode_cmd" \
+        steps/decode_fmllr.sh --nj 10 --cmd "$decode_cmd" \
           "$graphdir" "$partdir" "$tmplatdecodedir"
       fi
       mv "$tmplatdecodedir" "$latdecodedir"

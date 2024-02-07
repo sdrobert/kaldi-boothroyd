@@ -1,0 +1,27 @@
+# High predictability (HP) sentence list from
+#
+#   Arthur Boothroyd, Susan Nittrouer; Mathematical treatment of context
+#   effects in phoneme and word recognition. J. Acoust. Soc. Am. 1 July 1988;
+#   84 (1): 101–114. DOI: 10.1121/1.396976
+#
+
+tough guys sound mean
+warm sun feels good
+birds like long worms
+dad buys new shirts
+cows give sweet milk
+cooks make hot food
+feed your dog meat
+take that trash out
+dull paint won't shine
+most boys play ball
+tall men jump High
+red wine can stain
+tell mom those jokes
+sharp nails might hurt
+fall nights turn cool
+apes swing from trees
+boats sail at sea
+small kids need help
+pour me more tea
+fresh bread smells great

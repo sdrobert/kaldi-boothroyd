@@ -1,0 +1,47 @@
+# Zero predictability (ZP) sentence list from
+#
+#   Arthur Boothroyd, Susan Nittrouer; Mathematical treatment of context
+#   effects in phoneme and word recognition. J. Acoust. Soc. Am. 1 July 1988;
+#   84 (1): 101–114. DOI: 10.1121/1.396976
+#
+
+sing his get throw
+tin bread blue more
+pour this kids lead
+jokes boats speak fast
+trees nights from might
+rock mom sea strange
+apes home ducks clouds
+soft these ice give
+birds warm great fields
+knees on sleep feels
+sad slow cars bakes
+chairs pink well wine
+milk can swim girls
+play mean help less
+stain tape dull mice
+old ball paint swing
+shoes trash feet want
+find worms coat tail
+leaves joy high talk
+guys late phones chalk
+hats ears rat will
+cups small at fresh
+with chills me red
+sharp thin books look
+hurt tell laugh low
+taste long cats thieves
+lend men feet those
+bright tea green catch
+dumb good fall new
+forks may shirts jump
+good take sail sun
+shine them won't wide
+make meat teeth don't
+hands cooks cows nails
+that like fat smells
+dog you sweet dad
+out cool pens most
+hot wear hit need
+food boys kill fall
+sound tough turn buys

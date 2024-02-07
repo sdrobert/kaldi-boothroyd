@@ -1,6 +1,7 @@
 #! /usr/bin/env bash
 
 # Copyright 2024 Sean Robertson
+# Apache 2.0
 # FIXME(sdrobert): age groups are not standardized. Maybe should re-code them
 
 confdir="conf"

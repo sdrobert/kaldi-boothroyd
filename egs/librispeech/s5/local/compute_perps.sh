@@ -33,7 +33,7 @@ tmpdir="${5:-"$exp/tmp"}"
 
 set -e
 
-./utils/validate_data_dir.sh --no-feats "$data"
+./utils/validate_data_dir.sh --no-feats --no-wav "$data"
 
 for x in "$lm" "$data/text"; do
   if [ ! -f "$x" ]; then
@@ -82,7 +82,7 @@ done > "$tmpdir/perp"
 if [ -f "$data/segments" ]; then
   w="$data/segments"
 else
-  w="$data/wav.scp"
+  w="$data/text"
 fi
 nw="$(cat "$w" | wc -l)"
 np="$(./utils/filter_scp.pl "$tmpdir/perp" "$w" | wc -l)"

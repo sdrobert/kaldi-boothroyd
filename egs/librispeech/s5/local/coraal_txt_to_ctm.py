@@ -17,13 +17,16 @@ SKIP_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\["),  # overlapping speech
     re.compile(r"[(]"),  # some form of line-level note
     re.compile(r"-"),  # restarts and spelling out acronyms
+    re.compile(r"\b(um+|uh+|mh?m+|hm+|o+h|wo+|huh|(ha)+)\b", re.IGNORECASE),  # fillers
+    re.compile(r"\d"),  # numbers
 )
 
 REPLACE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     # (re.compile(r"<[^>]+>"), "<SPOKEN_NOISE>"),  # non-speech noises
     # (re.compile(r"\/[^/]+\/"), "<UNK>"),  # unintelligible, misspoken, redacted, etc.
     # (re.compile(r"-"), " "),  # restarts and spelling out acronyms
-    (re.compile(r"[.,?!]"), " "),  # punctuation
+    (re.compile(r"[.,?!\"]"), " "),  # punctuation
+    (re.compile(r" '$"), " "),  # a floating apostrophe
     (re.compile(r"\s+"), " "),  # one or more whitespace chars to space
     (re.compile(r"^ "), ""),  # sentence-initial space
     (re.compile(r" $"), ""),  # sentence-final space

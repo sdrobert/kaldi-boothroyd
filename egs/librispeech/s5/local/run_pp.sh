@@ -53,10 +53,10 @@ done
 if [ ! -f "$exp/${perplm}_perp_${part}/perp" ]; then
   if [[ "$perplm" =~ rnnlm ]]; then
     ./local/compute_perps_rnnlm.sh \
-      "$exp/$perplm" "$data/$part" "$exp/${perplm}_perp_${part}/perp"
+      "$exp/$perplm" "$data/$part" "$exp/${perplm}_perp_${part}"
   else
     ./local/compute_perps.sh \
       "$data/local/lm/lm_$perplm.arpa.gz" "$data/$part" \
-      "$exp/${perplm}_perp_${part}/perp"
+      "$exp/${perplm}_perp_${part}"
   fi
 fi
