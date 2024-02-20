@@ -23,5 +23,7 @@ dependencies:
   - huggingface_hub
   - sentencepiece
   - ruamel.yaml
+  - numba
   - pip:
+    - recombinator
     - git+https://github.com/sdrobert/kenlm.git

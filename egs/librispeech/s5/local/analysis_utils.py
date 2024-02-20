@@ -1,11 +1,5 @@
 # Copyright Sean Robertson
 # Apache 2.0
-#
-# regress2 was formatted, but otherwise copied verbatim from
-#
-# https://github.com/OceanOptics/pylr2/blob/master/pylr2/regress2.py
-#
-# which is MIT-licensed
 
 import re
 
@@ -15,13 +9,19 @@ from math import log
 
 import pandas as pd
 import numpy as np
-import statsmodels as sm
+import statsmodels.api as sm
 
 from scipy.interpolate import CubicSpline
 from scipy.optimize import curve_fit
 from pydrobert.kaldi.io.table_streams import open_table_stream
 from pydrobert.kaldi.io.enums import KaldiDataType
-
+from patsy import dmatrices
+from recombinator.optimal_block_length import optimal_block_length
+from recombinator.block_bootstrap import moving_block_bootstrap
+from recombinator.statistics import (
+    estimate_standard_error_from_bootstrap,
+    estimate_confidence_interval_from_bootstrap,
+)
 
 __all__ = [
     "agg_mean_by_lens",
@@ -43,180 +43,6 @@ __all__ = [
     "inv_zhang_func",
 ]
 
-
-def regress2(_x, _y, _method_type_1 = "ordinary least square",
-             _method_type_2 = "reduced major axis",
-             _weight_x = [], _weight_y = [], _need_intercept = True):
-    # Regression Type II based on statsmodels
-    # Type II regressions are recommended if there is variability on both x and y
-    # It's computing the linear regression type I for (x,y) and (y,x)
-    # and then average relationship with one of the type II methods
-    #
-    # INPUT:
-    #   _x <np.array>
-    #   _y <np.array>
-    #   _method_type_1 <str> method to use for regression type I:
-    #     ordinary least square or OLS <default>
-    #     weighted least square or WLS
-    #     robust linear model or RLM
-    #   _method_type_2 <str> method to use for regression type II:
-    #     major axis
-    #     reduced major axis <default> (also known as geometric mean)
-    #     arithmetic mean
-    #   _need_intercept <bool>
-    #     True <default> add a constant to relation (y = a x + b)
-    #     False force relation by 0 (y = a x)
-    #   _weight_x <np.array> containing the weigth of x
-    #   _weigth_y <np.array> containing the weigth of y
-    #
-    # OUTPUT:
-    #   slope
-    #   intercept
-    #   r
-    #   std_slope
-    #   std_intercept
-    #   predict
-    #
-    # REQUIRE:
-    #   numpy
-    #   statsmodels
-    #
-    # The code is based on the matlab function of MBARI.
-    # AUTHOR: Nils Haentjens
-    # REFERENCE: https://www.mbari.org/products/research-software/matlab-scripts-linear-regressions/
-
-    # Check input
-    if _method_type_2 != "reduced major axis" and _method_type_1 != "ordinary least square":
-        raise ValueError("'" + _method_type_2 + "' only supports '" + _method_type_1 + "' method as type 1.")
-
-    # Set x, y depending on intercept requirement
-    if _need_intercept:
-        x_intercept = sm.add_constant(_x)
-        y_intercept = sm.add_constant(_y)
-
-    # Compute Regression Type I (if type II requires it)
-    if (_method_type_2 == "reduced major axis" or
-        _method_type_2 == "geometric mean"):
-        if _method_type_1 == "OLS" or _method_type_1 == "ordinary least square":
-            if _need_intercept:
-                [intercept_a, slope_a] = sm.OLS(_y, x_intercept).fit().params
-                [intercept_b, slope_b] = sm.OLS(_x, y_intercept).fit().params
-            else:
-                slope_a = sm.OLS(_y, _x).fit().params
-                slope_b = sm.OLS(_x, _y).fit().params
-        elif _method_type_1 == "WLS" or _method_type_1 == "weighted least square":
-            if _need_intercept:
-                [intercept_a, slope_a] = sm.WLS(
-                    _y, x_intercept, weights=1. / _weight_y).fit().params
-                [intercept_b, slope_b] = sm.WLS(
-                    _x, y_intercept, weights=1. / _weight_x).fit().params
-            else:
-                slope_a = sm.WLS(_y, _x, weights=1. / _weight_y).fit().params
-                slope_b = sm.WLS(_x, _y, weights=1. / _weight_x).fit().params
-        elif _method_type_1 == "RLM" or _method_type_1 == "robust linear model":
-            if _need_intercept:
-                [intercept_a, slope_a] = sm.RLM(_y, x_intercept).fit().params
-                [intercept_b, slope_b] = sm.RLM(_x, y_intercept).fit().params
-            else:
-                slope_a = sm.RLM(_y, _x).fit().params
-                slope_b = sm.RLM(_x, _y).fit().params
-        else:
-            raise ValueError("Invalid literal for _method_type_1: " + _method_type_1)
-
-    # Compute Regression Type II
-    if (_method_type_2 == "reduced major axis" or
-        _method_type_2 == "geometric mean"):
-        # Transpose coefficients
-        if _need_intercept:
-            intercept_b = -intercept_b / slope_b
-        slope_b = 1 / slope_b
-        # Check if correlated in same direction
-        if np.sign(slope_a) != np.sign(slope_b):
-            raise RuntimeError('Type I regressions of opposite sign.')
-        # Compute Reduced Major Axis Slope
-        slope = np.sign(slope_a) * np.sqrt(slope_a * slope_b)
-        if _need_intercept:
-            # Compute Intercept (use mean for least square)
-            if _method_type_1 == "OLS" or _method_type_1 == "ordinary least square":
-                intercept = np.mean(_y) - slope * np.mean(_x)
-            else:
-                intercept = np.median(_y) - slope * np.median(_x)
-        else:
-            intercept = 0
-        # Compute r
-        r = np.sign(slope_a) * np.sqrt(slope_a / slope_b)
-        # Compute predicted values
-        predict = slope * _x + intercept
-        # Compute standard deviation of the slope and the intercept
-        n = len(_x)
-        diff = _y - predict
-        Sx2 = np.sum(np.multiply(_x, _x))
-        den = n * Sx2 - np.sum(_x) ** 2
-        s2 = np.sum(np.multiply(diff, diff)) / (n - 2)
-        std_slope = np.sqrt(n * s2 / den)
-        if _need_intercept:
-            std_intercept = np.sqrt(Sx2 * s2 / den)
-        else:
-            std_intercept = 0
-    elif (_method_type_2 == "Pearson's major axis" or
-          _method_type_2 == "major axis"):
-        if not _need_intercept:
-            raise ValueError("Invalid value for _need_intercept: " + str(_need_intercept))
-        xm = np.mean(_x)
-        ym = np.mean(_y)
-        xp = _x - xm
-        yp = _y - ym
-        sumx2 = np.sum(np.multiply(xp, xp))
-        sumy2 = np.sum(np.multiply(yp, yp))
-        sumxy = np.sum(np.multiply(xp, yp))
-        slope = ((sumy2 - sumx2 + np.sqrt((sumy2 - sumx2)**2 + 4 * sumxy**2)) /
-                 (2 * sumxy))
-        intercept = ym - slope * xm
-        # Compute r
-        r = sumxy / np.sqrt(sumx2 * sumy2)
-        # Compute standard deviation of the slope and the intercept
-        n = len(_x)
-        std_slope = (slope / r) * np.sqrt((1 - r ** 2) / n)
-        sigx = np.sqrt(sumx2 / (n - 1))
-        sigy = np.sqrt(sumy2 / (n - 1))
-        std_i1 = (sigy - sigx * slope) ** 2
-        std_i2 = (2 * sigx * sigy) + ((xm ** 2 * slope * (1 + r)) / r ** 2)
-        std_intercept = np.sqrt((std_i1 + ((1 - r) * slope * std_i2)) / n)
-        # Compute predicted values
-        predict = slope * _x + intercept
-    elif _method_type_2 == "arithmetic mean":
-        if not _need_intercept:
-            raise ValueError("Invalid value for _need_intercept: " + str(_need_intercept))
-        n = len(_x)
-        sg = np.floor(n / 2)
-        # Sort x and y in order of x
-        sorted_index = sorted(range(len(_x)), key=lambda i: _x[i])
-        x_w = np.array([_x[i] for i in sorted_index])
-        y_w = np.array([_y[i] for i in sorted_index])
-        x1 = x_w[1:sg + 1]
-        x2 = x_w[sg:n]
-        y1 = y_w[1:sg + 1]
-        y2 = y_w[sg:n]
-        x1m = np.mean(x1)
-        x2m = np.mean(x2)
-        y1m = np.mean(y1)
-        y2m = np.mean(y2)
-        xm = (x1m + x2m) / 2
-        ym = (y1m + y2m) / 2
-        slope = (x2m - x1m) / (y2m - y1m)
-        intercept = ym - xm * slope
-        # r (to verify)
-        r = []
-        # Compute predicted values
-        predict = slope * _x + intercept
-        # Compute standard deviation of the slope and the intercept
-        std_slope = []
-        std_intercept = []
-
-    # Return all that
-    return {"slope": float(slope), "intercept": intercept, "r": r,
-            "std_slope": std_slope, "std_intercept": std_intercept,
-            "predict": predict}
 
 def read_kaldi_table_as_df(
     rspecifier: str,
@@ -340,9 +166,13 @@ def read_best_uttwers_as_df(
 def bin_series(
     s: pd.Series,
     bins: Union[int, Sequence[float]],
-    by_rank: bool = True,
+    by_rank: bool = False,
     fmt: str = "{}",
+    lower_quant: float = 0.0,
+    upper_quant: float = 1.0,
 ) -> Tuple[pd.Series, list[float]]:
+    qq = s.quantile([lower_quant, upper_quant])
+    s = s.loc[(s >= qq[lower_quant]) & (s <= qq[upper_quant])]
     v = s.rank() if by_rank else s
     bin_vals = pd.cut(v, bins, labels=False)
     if isinstance(bins, int):
@@ -414,35 +244,72 @@ def log_boothroyd_func(x: np.ndarray, k: float, c: float = 1) -> np.ndarray:
 
 
 def boothroyd_fit(
-    x: np.ndarray,
-    y: np.ndarray,
-    fit_exponent: bool = False,
-    add_intercept: bool = False,
-    resample_points: Optional[int] = None,
-    method_i = "OLS",
-    method_ii = "reduced major axis",
-) -> tuple[float, float]:
-    if fit_exponent:
-        x, y = np.exp(x), np.exp(y)
-        fn = boothroyd_func
+    df: pd.DataFrame,
+    lwer_in: str = "lwer_in",
+    lwer_out: str = "lwer_out",
+    ent_bin: str = "ent_bin_in",
+    snr: str = "snr",
+    include_snr: bool = False,
+    include_intercept: bool = False,
+    negative_log_fit: bool = False,
+    alpha: float = 0.05,
+    bootstrap_size: int = 1000,
+) -> np.ndarray:
+    x: np.ndarray
+    y: np.ndarray
+    df = df.assign(**{ent_bin: df[ent_bin].cat.remove_unused_categories()})
+    df = df.sort_values(by=[ent_bin, snr])
+    if negative_log_fit:
+        formula = f"I(np.log(-{lwer_in}) - np.log(-{lwer_out})) ~ {ent_bin}"
     else:
-        fn = log_boothroyd_func
+        formula = f"{lwer_in} ~ {ent_bin}:{lwer_out}"
+    if include_snr:
+        formula += f" + {snr}"
+    if not include_intercept:
+        formula += " - 1"
+    y, x = dmatrices(formula, df)
+    mod = sm.OLS(y, x)
+    fit = mod.fit()
+    records = []
+    for i, name in enumerate(x.design_info.column_names):
+        records.append(
+            dict(
+                name=name.split(":")[0],
+                coef=fit.params[i],
+            )
+        )
+    records = pd.DataFrame.from_records(records)
+    if negative_log_fit:
+        records["coef"] = np.exp(records["coef"])
+    if bootstrap_size > 0:
+        xy = np.append(x, y, axis=1)
+        obl = optimal_block_length(y)
+        Bxy: np.ndarray = moving_block_bootstrap(
+            xy, int(obl[0].b_star_cb), bootstrap_size
+        )
+        bparams = np.zeros((bootstrap_size,) + fit.params.shape)
+        for b, bxy in enumerate(Bxy):
+            bx, by = bxy[:, :-1], bxy[:, -1:]
+            mod = sm.OLS(by, bx)
+            bfit = mod.fit()
+            bparams[b] = bfit.params
+        bparams = bparams.T
+        if negative_log_fit:
+            bparams = np.exp(bparams)
+        records["bootstrap"] = list(bparams)
+        records["se"] = [
+            estimate_standard_error_from_bootstrap(*x)
+            for x in zip(bparams, records["coef"].to_numpy())
+        ]
+        cis = [
+            estimate_confidence_interval_from_bootstrap(x, 100 - 100 * alpha)
+            for x in bparams
+        ]
+        records["ci_low"] = [ci[0] for ci in cis]
+        records["ci_high"] = [ci[1] for ci in cis]
+    return records.set_index("name")
 
-    if resample_points is not None:
-        x, y = _resample_points(x, y, resample_points)
-    
-    # dict_ = regress2(x, y, method_i, method_ii, _need_intercept=add_intercept)
-    # k = dict_['slope']
-    # c = np.exp(dict_['intercept']) if add_intercept else 1
-    
-    p0 = (1.0, 1.0) if add_intercept else (1.0,)
-        
-    fit, _ = curve_fit(
-        fn, x, y, p0
-    )
-    k, c = fit[0], fit[1] if add_intercept else 1.0
-    return k, c
-    
+
 def recip_zhang_func(x: np.ndarray, A: float, B: float, C: float) -> np.ndarray:
     return np.exp(-(x + B) / C) + A
 
@@ -455,7 +322,7 @@ def log_zhang_func(x: np.ndarray, A: float, B: float, C: float) -> np.ndarray:
     return -np.logaddexp(-(x + B) / C, np.log(A))
 
 
-def inv_zhang_func(x : np.ndarray, A: float, B: float, C: float) -> np.ndarray:
+def inv_zhang_func(x: np.ndarray, A: float, B: float, C: float) -> np.ndarray:
     return C * np.log(x / (1 - A * x)) - B
 
 
