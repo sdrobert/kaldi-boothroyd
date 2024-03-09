@@ -9,10 +9,9 @@ from math import log
 
 import pandas as pd
 import numpy as np
-import statsmodels.api as sm
 
 from scipy.interpolate import CubicSpline
-from scipy.optimize import curve_fit
+from scipy.optimize import leastsq
 from pydrobert.kaldi.io.table_streams import open_table_stream
 from pydrobert.kaldi.io.enums import KaldiDataType
 from patsy import dmatrices
@@ -21,7 +20,9 @@ from recombinator.block_bootstrap import moving_block_bootstrap
 from recombinator.statistics import (
     estimate_standard_error_from_bootstrap,
     estimate_confidence_interval_from_bootstrap,
+    estimate_bias_from_bootstrap,
 )
+from statsmodels.graphics.tsaplots import plot_acf
 
 __all__ = [
     "agg_mean_by_lens",
@@ -243,6 +244,24 @@ def log_boothroyd_func(x: np.ndarray, k: float, c: float = 1) -> np.ndarray:
     return k * x + np.log(c)
 
 
+def _log_boothroyd_fit(y: np.ndarray, x: np.ndarray) -> np.ndarray:
+    return np.linalg.lstsq(x, y, rcond=None)[0]
+
+
+def _boothroyd_fit(y: np.ndarray, x: np.ndarray) -> np.ndarray:
+    w0 = _log_boothroyd_fit(y, x)
+    y = np.exp(y)
+    return leastsq(lambda w: y - _bfunc(x, w), w0)[0]
+
+
+def _bfunc(x: np.ndarray, w: np.ndarray) -> np.ndarray:
+    return (np.exp(x) ** w).prod(1)
+
+
+def _lbfunc(x: np.ndarray, w: np.ndarray) -> np.ndarray:
+    return (x * w).sum(1)
+
+
 def boothroyd_fit(
     df: pd.DataFrame,
     lwer_in: str = "lwer_in",
@@ -251,63 +270,53 @@ def boothroyd_fit(
     snr: str = "snr",
     include_snr: bool = False,
     include_intercept: bool = False,
-    negative_log_fit: bool = False,
+    exp_fit: bool = True,
     alpha: float = 0.05,
-    bootstrap_size: int = 1000,
-) -> np.ndarray:
+    bootstrap_size: int = 9999,
+) -> pd.DataFrame:
     x: np.ndarray
     y: np.ndarray
-    df = df.assign(**{ent_bin: df[ent_bin].cat.remove_unused_categories()})
-    df = df.sort_values(by=[ent_bin, snr])
-    if negative_log_fit:
-        formula = f"I(np.log(-{lwer_in}) - np.log(-{lwer_out})) ~ {ent_bin}"
-    else:
-        formula = f"{lwer_in} ~ {ent_bin}:{lwer_out}"
+    formula = f"{lwer_in} ~ {ent_bin}:{lwer_out}"
     if include_snr:
         formula += f" + {snr}"
     if not include_intercept:
         formula += " - 1"
     y, x = dmatrices(formula, df)
-    mod = sm.OLS(y, x)
-    fit = mod.fit()
+    y = y[..., 0]
+    if exp_fit:
+        fit = _boothroyd_fit
+        func = lambda x, w: np.log(_bfunc(x, w))
+    else:
+        fit = _log_boothroyd_fit
+        func = _lbfunc
+    w = fit(y, x)
     records = []
     for i, name in enumerate(x.design_info.column_names):
-        records.append(
-            dict(
-                name=name.split(":")[0],
-                coef=fit.params[i],
-            )
-        )
+        if name.startswith(ent_bin):
+            name = name.split(":")[0][len(ent_bin) + 1 : -1]
+        records.append(dict(name=name, coef=w[i]))
     records = pd.DataFrame.from_records(records)
-    if negative_log_fit:
-        records["coef"] = np.exp(records["coef"])
     if bootstrap_size > 0:
-        xy = np.append(x, y, axis=1)
-        obl = optimal_block_length(y)
-        Bxy: np.ndarray = moving_block_bootstrap(
-            xy, int(obl[0].b_star_cb), bootstrap_size
-        )
-        bparams = np.zeros((bootstrap_size,) + fit.params.shape)
-        for b, bxy in enumerate(Bxy):
-            bx, by = bxy[:, :-1], bxy[:, -1:]
-            mod = sm.OLS(by, bx)
-            bfit = mod.fit()
-            bparams[b] = bfit.params
-        bparams = bparams.T
-        if negative_log_fit:
-            bparams = np.exp(bparams)
-        records["bootstrap"] = list(bparams)
-        records["se"] = [
-            estimate_standard_error_from_bootstrap(*x)
-            for x in zip(bparams, records["coef"].to_numpy())
-        ]
+        # in log space, the residuals are quite miniscule for high error (log e = 0) and
+        # very large for low errors (log e -> -inf). In the face of heteroskedasticity,
+        # we rely on the Wild Bootstrap
+        yhat = func(x, w)
+        resid = y - yhat
+        Bw = np.zeros((bootstrap_size,) + w.shape)
+        for b in range(bootstrap_size):
+            by = yhat + resid * np.random.normal(size=y.shape)
+            Bw[b] = fit(by, x)
+        Bw = Bw.T
+        records["bootstrap"] = list(Bw)
+        records["se"] = [estimate_standard_error_from_bootstrap(*x) for x in zip(Bw, w)]
+        records["bias"] = [(bw_i.mean() - w_i) for (bw_i, w_i) in zip(Bw, w)]
         cis = [
             estimate_confidence_interval_from_bootstrap(x, 100 - 100 * alpha)
-            for x in bparams
+            for x in Bw
         ]
-        records["ci_low"] = [ci[0] for ci in cis]
-        records["ci_high"] = [ci[1] for ci in cis]
-    return records.set_index("name")
+        records["ci_low"] = [ci[0] for ci in cis] - records["bias"]
+        records["ci_high"] = [ci[1] for ci in cis] - records["bias"]
+    return records
 
 
 def recip_zhang_func(x: np.ndarray, A: float, B: float, C: float) -> np.ndarray:

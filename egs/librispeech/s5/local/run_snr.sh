@@ -15,7 +15,7 @@ snr_low=-10      # lower bound (inclusive) of signal-to-noise ratio (SNR)
 snr_high=30      # upper bound (inclusive) of signal-to-noise ratio (SNR)
 pretrained_store=/ais/hal9000/sdrobert/librispeech_models  # where pretrained models are downloaded to
 pretrained_url=https://kaldi-asr.org/models/13  # where to download pretrained models from
-use_gpu=false
+use_gpu=true
 
 . ./cmd.sh
 . ./path.sh
