@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 
-
-# Set this to somewhere where you want to put your data, or where
-# someone else has already put it.  You'll want to change this
-# if you're not on the CLSP grid.
-data=/ais/hal9000/sdrobert/librispeech
+# FIXME(sdrobert): set this to wherever you want to download the librispeech
+# data to
+data=data/dump
 
 # base url for downloads.
 data_url=www.openslr.org/resources/12

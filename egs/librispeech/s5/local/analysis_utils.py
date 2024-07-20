@@ -10,22 +10,21 @@ from math import log
 import pandas as pd
 import numpy as np
 
-from patsy import dmatrices
 from scipy.interpolate import CubicSpline
-from scipy.optimize import leastsq
+from scipy.optimize import leastsq, curve_fit
 from pydrobert.kaldi.io.table_streams import open_table_stream
 from pydrobert.kaldi.io.enums import KaldiDataType
 from recombinator.statistics import (
     estimate_standard_error_from_bootstrap,
     estimate_confidence_interval_from_bootstrap,
 )
+from patsy.highlevel import dmatrices
 
 __all__ = [
     "agg_mean_by_lens",
     "bin_series",
     "boothroyd_fit",
     "boothroyd_func",
-    "klakow_fit",
     "klakow_func",
     "log_boothroyd_func",
     "log_klakow_func",
@@ -358,13 +357,3 @@ def klakow_func(x: np.ndarray, a: float, b: float = 1) -> np.ndarray:
 
 def log_klakow_func(x: np.ndarray, a: float, b: float = 1) -> np.ndarray:
     return log_boothroyd_func(x, a, b)
-
-
-def klakow_fit(
-    x: np.ndarray,
-    y: np.ndarray,
-    fit_exponent: bool = False,
-    add_intercept: bool = True,
-    resample_points: Optional[int] = None,
-) -> tuple[float, float]:
-    return boothroyd_fit(x, y, fit_exponent, add_intercept, resample_points)

@@ -11,7 +11,7 @@ confdir="conf"
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 [options] <src-dir> <dst-dir>"
-  echo "e.g.: $0 /ais/hal9000/sdrobert/coraal data/local/coraal"
+  echo "e.g.: $0 /data/coraal data/local/coraal"
   echo "Options:"
   echo " --confdir <dir>"
 fi
