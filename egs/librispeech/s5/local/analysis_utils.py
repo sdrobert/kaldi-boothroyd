@@ -10,19 +10,15 @@ from math import log
 import pandas as pd
 import numpy as np
 
+from patsy import dmatrices
 from scipy.interpolate import CubicSpline
 from scipy.optimize import leastsq
 from pydrobert.kaldi.io.table_streams import open_table_stream
 from pydrobert.kaldi.io.enums import KaldiDataType
-from patsy import dmatrices
-from recombinator.optimal_block_length import optimal_block_length
-from recombinator.block_bootstrap import moving_block_bootstrap
 from recombinator.statistics import (
     estimate_standard_error_from_bootstrap,
     estimate_confidence_interval_from_bootstrap,
-    estimate_bias_from_bootstrap,
 )
-from statsmodels.graphics.tsaplots import plot_acf
 
 __all__ = [
     "agg_mean_by_lens",
