@@ -7,7 +7,7 @@ exp=exp        # experiment directory
 data=data      # data directory
 perplm=rnnlm_lstm_1a # which lm to use to compute perplexities
 part=dev_clean # partition to perform 
-pretrained_store=/ais/hal9000/sdrobert/librispeech_models  # where pretrained models are downloaded to
+pretrained_store=exp/librispeech_models  # where pretrained models are downloaded to
 pretrained_url=https://kaldi-asr.org/models/13  # where to download pretrained models from
 
 . ./cmd.sh
