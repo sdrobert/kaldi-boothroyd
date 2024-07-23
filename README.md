@@ -71,22 +71,29 @@ like this:
 
 ```
 exp/
+  chain_cleaned/
+  facebook/
+  ...
 data/
+  ATL/
+  ...
   dev_clean/
   ...
 local/
   analysis.ipynb
   ...
-...
 cmd.sh
 path.sh
 run.sh
+...
 ```
 
 You can then run `analysis.ipynb` from the local folder. **Make sure to
 activate the Conda environment first!**
 
 ### Starting from scratch
+
+*These commands were from memory. Please use your discretion.*
 
 If you have a lot of time on your hands or want to run an analysis on other
 corpora, you'll first want to run (at least) up to the end of stage 4 in
