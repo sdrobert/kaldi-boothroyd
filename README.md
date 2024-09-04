@@ -6,6 +6,8 @@ This is the companion repository to the paper
   Predictability in Automatic Speech Recognition", Proc. INTERSPEECH 2024 (to
   appear)
 
+Presentation slides are in the [slides.pdf](./slides.pdf) file.
+
 This is a modified, trimmed-down version of the [Kaldi
 repository](https://github.com/kaldi-asr/kaldi). The paper's recipes and
 supplemental figures may be found in `egs/librispeech/s5` folder.
